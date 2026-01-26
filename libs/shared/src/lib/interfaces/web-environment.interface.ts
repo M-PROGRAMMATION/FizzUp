@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod'
 import { Environment } from '../enums';
 
 export const webAppSchema = z.object({

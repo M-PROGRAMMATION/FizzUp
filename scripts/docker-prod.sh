@@ -31,13 +31,22 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Variables
+COMPOSE_FILE="docker-compose.prod.yaml"
+ENV_FILE=".env.prod"
+
 # Vérification du fichier .env.prod
 check_env() {
-    if [ ! -f .env.prod ]; then
-        log_error "Le fichier .env.prod n'existe pas!"
-        log_info "Copiez .env.prod.example en .env.prod et configurez vos variables"
+    if [ ! -f "$ENV_FILE" ]; then
+        log_error "Le fichier $ENV_FILE n'existe pas!"
+        log_info "Copiez .env.prod.example en $ENV_FILE et configurez vos variables"
         exit 1
     fi
+}
+
+# Wrapper pour docker compose
+docker_compose() {
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
 }
 
 # Affichage de l'aide
@@ -55,8 +64,6 @@ Commands:
   restart     Redémarre tous les services
   build       Build les images Docker
   logs        Affiche les logs de tous les services
-  logs-api    Affiche les logs de l'API
-  logs-web    Affiche les logs du frontend
   logs-db     Affiche les logs de PostgreSQL
   logs-redis  Affiche les logs de Redis
   status      Affiche le statut des services
@@ -66,7 +73,7 @@ Commands:
 
 Exemples:
   ./docker-prod.sh start
-  ./docker-prod.sh logs-api
+  ./docker-prod.sh logs-db
   ./docker-prod.sh build
   ./docker-prod.sh debug
 "
@@ -77,59 +84,59 @@ case "$1" in
     start)
         check_env
         log_info "Démarrage des services en production..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+        docker_compose up -d
         log_success "Services démarrés!"
-        docker compose -f docker-compose.prod.yml --env-file .env.prod ps
+        docker_compose ps
         ;;
     
     stop)
         log_info "Arrêt des services..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod down
+        docker_compose down
         log_success "Services arrêtés!"
         ;;
     
     restart)
         check_env
         log_info "Redémarrage des services..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod restart
+        docker_compose restart
         log_success "Services redémarrés!"
-        docker compose -f docker-compose.prod.yml --env-file .env.prod ps
+        docker_compose ps
         ;;
     
     build)
         check_env
         log_info "Build des images Docker..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod build --no-cache
+        docker_compose build --no-cache
         log_success "Build terminé!"
         ;;
     
     logs)
-        docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f
+        docker_compose logs -f
         ;;
     
-    logs-api)
-        log_info "Affichage des logs de l'API..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f api
-        ;;
+    # logs-api)
+    #     log_info "Affichage des logs de l'API..."
+    #     docker_compose logs -f api
+    #     ;;
     
-    logs-web)
-        log_info "Affichage des logs du frontend..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f web-app
-        ;;
+    # logs-web)
+    #     log_info "Affichage des logs du frontend..."
+    #     docker_compose logs -f web-app
+    #     ;;
     
     logs-db)
         log_info "Affichage des logs de PostgreSQL..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f postgres
+        docker_compose logs -f fizzup_postgres
         ;;
     
     logs-redis)
         log_info "Affichage des logs de Redis..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f redis
+        docker_compose logs -f fizzup_redis
         ;;
     
     status)
         log_info "Statut des services:"
-        docker compose -f docker-compose.prod.yml --env-file .env.prod ps
+        docker_compose ps
         ;;
     
     clean)
@@ -138,7 +145,7 @@ case "$1" in
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             log_info "Nettoyage en cours..."
-            docker compose -f docker-compose.prod.yml --env-file .env.prod down -v --rmi all
+            docker_compose down -v --rmi all
             log_success "Nettoyage terminé!"
         else
             log_info "Annulé."
@@ -148,9 +155,9 @@ case "$1" in
     debug)
         check_env
         log_info "Démarrage avec le profil debug (Adminer inclus)..."
-        docker compose -f docker-compose.prod.yml --env-file .env.prod --profile debug up -d
+        docker_compose --profile debug up -d
         log_success "Services démarrés avec debug!"
-        docker compose -f docker-compose.prod.yml --env-file .env.prod --profile debug ps
+        docker_compose --profile debug ps
         ;;
     
     help|--help|-h|"")

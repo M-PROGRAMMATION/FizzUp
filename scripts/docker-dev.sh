@@ -42,7 +42,7 @@ show_help() {
 ║        FizzUp - Gestion Docker Développement             ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Usage: ./docker-dev.sh [COMMAND] [ENV_FILE]
+Usage: ./scripts/docker-dev.sh [COMMAND] [ENV_FILE]
 
 Commands:
   start       Démarre tous les services en développement
@@ -60,9 +60,9 @@ Arguments:
   ENV_FILE    Fichier d'environnement (défaut: .env.development)
 
 Exemples:
-  ./docker-dev.sh start
-  ./docker-dev.sh logs-db
-  ./docker-dev.sh start .env.test
+  ./scripts/docker-dev.sh start
+  ./scripts/docker-dev.sh logs-db
+  ./scripts/docker-dev.sh start .env.test
 
 Services disponibles:
   - PostgreSQL:       localhost:35435
@@ -74,8 +74,7 @@ Services disponibles:
 
 # Vérifier si les conteneurs sont déjà en cours d'exécution
 check_running() {
-    RUNNING=$(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q 2>/dev/null | wc -l | tr -d ' ')
-    return $RUNNING
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps -q 2>/dev/null | wc -l | tr -d ' '
 }
 
 # Commandes
@@ -83,7 +82,8 @@ case "$1" in
     start)
         log_info "Vérification de l'état des conteneurs..."
         
-        if check_running && [ $? -gt 0 ]; then
+        RUNNING=$(check_running)
+        if [ "$RUNNING" -gt 0 ]; then
             echo ""
             log_warning "Les conteneurs sont déjà en cours d'exécution!"
             echo ""

@@ -4,7 +4,19 @@
 
 set -e
 
-ENV_FILE="${1:-.env.development}"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+case "$BRANCH" in
+  main|master)
+    ENV_FILE=".env.production"
+    ;;
+  staging)
+    ENV_FILE=".env.staging"
+    ;;
+  *)
+    ENV_FILE=".env.development"
+    ;;
+esac
 
 echo "� Vérification de l'état des conteneurs..."
 

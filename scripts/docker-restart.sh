@@ -4,9 +4,10 @@
 
 set -e
 
-ENV_FILE="${1:-.env.development}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BRANCH=${1:-$(git rev-parse --abbrev-ref HEAD)}
 
 echo "🔄 Redémarrage des conteneurs Docker..."
 
-./scripts/docker-stop.sh "$ENV_FILE"
-./scripts/docker-start.sh "$ENV_FILE"
+"$ROOT_DIR/scripts/docker-stop.sh" "$BRANCH"
+"$ROOT_DIR/scripts/docker-start.sh" "$BRANCH"

@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script pour démarrer les conteneurs Docker en mode développement
+# Script pour démarrer les conteneurs Docker
 
 set -e
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
+BRANCH=${1:-$(git rev-parse --abbrev-ref HEAD)}
 
 case "$BRANCH" in
   main|master)
@@ -19,8 +19,6 @@ case "$BRANCH" in
 esac
 
 echo "� Vérification de l'état des conteneurs..."
-
-# Vérifier si les conteneurs sont déjà en cours d'exécution
 RUNNING=$(docker-compose -f docker-compose.local.yaml --env-file "$ENV_FILE" ps -q 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$RUNNING" -gt 0 ]; then
@@ -37,16 +35,7 @@ fi
 
 echo "�🚀 Démarrage des conteneurs Docker..."
 echo "📄 Utilisation du fichier: $ENV_FILE"
-
 docker-compose -f docker-compose.local.yaml --env-file "$ENV_FILE" up -d
 
 echo ""
 echo "✅ Conteneurs démarrés avec succès!"
-echo ""
-echo "📊 Services disponibles:"
-echo "  - PostgreSQL: localhost:35435"
-echo "  - Adminer: http://localhost:38082"
-echo "  - Redis: localhost:6379"
-echo "  - Redis Commander: http://localhost:8081"
-echo ""
-echo "💡 Utilisez './scripts/docker-logs.sh' pour voir les logs"

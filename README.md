@@ -2,7 +2,7 @@
 
 Monorepo Next.js et NestJS pour l'application FizzUp.
 
-## 🚀 Démarrage rapide 
+## 🚀 Démarrage rapide  
 
 ### 1. Démarrer Docker (PostgreSQL, Redis, Adminer)
 

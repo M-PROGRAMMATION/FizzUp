@@ -22,4 +22,4 @@ jobs:
         run: cp /home/mark/FizzUp/.env.staging $GITHUB_WORKSPACE/.env.staging
 
       - name: Restart Docker
-        run: sudo ./scripts/docker-start.sh ${{ github.ref_name }}
+        run: ./scripts/docker-start.sh ${{ github.ref_name }}

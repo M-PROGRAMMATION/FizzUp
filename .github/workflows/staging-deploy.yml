@@ -1,0 +1,20 @@
+name: Deploy to staging VPS
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy on VPS
+        run: |
+          cd /home/mark/FizzUp
+          git fetch origin
+          git reset --hard origin/staging
+
+          chmod +x scripts/*.sh
+          ./scripts/docker-restart.sh

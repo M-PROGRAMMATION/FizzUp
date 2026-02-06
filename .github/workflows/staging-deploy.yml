@@ -21,5 +21,11 @@ jobs:
       - name: Copy staging env
         run: cp /home/mark/FizzUp/.env.staging $GITHUB_WORKSPACE/.env.staging
 
+      - name: Log runner user and groups
+        run: |
+          echo "User: $(whoami)"
+          echo "UID/GID: $(id)"
+          echo "Groups: $(groups)"
+
       - name: Restart Docker
         run: ./scripts/docker-start.sh ${{ github.ref_name }}

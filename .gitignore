@@ -24,6 +24,9 @@ node_modules
 !.vscode/launch.json
 !.vscode/extensions.json
 
+/.data/*
+/data/
+
 # misc
 /.sass-cache
 /connect.lock
@@ -92,3 +95,5 @@ next-env.d.ts
 # swc
 .spec.swcrc
 *.swcrc
+!apps/**/.spec.swcrc
+!apps/**/.swcrc

@@ -95,3 +95,5 @@ next-env.d.ts
 # swc
 .spec.swcrc
 *.swcrc
+!apps/**/.spec.swcrc
+!apps/**/.swcrc

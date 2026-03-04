@@ -21,6 +21,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY nx.json ./
 COPY tsconfig.base.json ./
+COPY tsconfig.json ./
 COPY jest.config.ts ./
 COPY jest.preset.js ./
 

@@ -19,4 +19,4 @@ jobs:
       - name: Rebuild and restart API + Web only
         run: |
           cd /home/mark/FizzUp
-          docker-compose -f docker-compose.staging.yml up -d --build --force-recreate fizzup_api fizzup_web_app
+          docker-compose -f docker-compose.staging.yaml up -d --build --force-recreate fizzup_api fizzup_web_app

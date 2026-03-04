@@ -24,8 +24,9 @@ COPY tsconfig.base.json ./
 COPY jest.config.ts ./
 COPY jest.preset.js ./
 
-# Copy app source
+# Copy app source and shared library
 COPY apps/web-app ./apps/web-app
+COPY libs/shared ./libs/shared
 
 # Sync Nx workspace
 RUN npx nx sync

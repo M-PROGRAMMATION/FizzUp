@@ -15,8 +15,8 @@ jobs:
           cd /home/mark/FizzUp
           git fetch origin
           git reset --hard origin/${{ github.ref_name }}
-
+      
       - name: Rebuild and restart API + Web only
         run: |
           cd /home/mark/FizzUp
-          docker compose up -d --build --force-recreate fizzup_api fizzup_web_app
+          docker-compose up -d --build --force-recreate fizzup_api fizzup_web_app

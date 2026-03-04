@@ -8,22 +8,18 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+
     steps:
-      - name: Clean root-owned files from previous run
-        run: sudo rm -rf "$GITHUB_WORKSPACE"
-        continue-on-error: true
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Pull code on server
+      - name: Pull latest code
         run: |
           cd /home/mark/FizzUp
           git fetch origin
           git reset --hard origin/${{ github.ref_name }}
 
-      - name: Copy staging env
-        run: cp /home/mark/FizzUp/.env.staging $GITHUB_WORKSPACE/.env.staging
+      - name: Fix permissions
+        run: sudo chown -R mark:mark /home/mark/FizzUp
 
       - name: Restart Docker
-        run: ./scripts/docker-start.sh ${{ github.ref_name }}
+        run: |
+          cd /home/mark/FizzUp
+          ./scripts/docker-start.sh ${{ github.ref_name }}

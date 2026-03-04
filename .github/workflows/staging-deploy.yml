@@ -16,9 +16,6 @@ jobs:
           git fetch origin
           git reset --hard origin/${{ github.ref_name }}
 
-      - name: Fix permissions
-        run: sudo chown -R mark:mark /home/mark/FizzUp
-
       - name: Restart Docker
         run: |
           cd /home/mark/FizzUp

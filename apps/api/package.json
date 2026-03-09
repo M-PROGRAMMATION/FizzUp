@@ -55,6 +55,30 @@
         ],
         "executor": "nx:noop"
       },
+      "migrations-create": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "MIKRO_ORM_ENV=.env.development node --conditions=@fizzup/source ./node_modules/.bin/mikro-orm migration:create --config apps/api/src/app/config/mikro-orm.config.ts"
+        }
+      },
+      "migrations-up": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "MIKRO_ORM_ENV=.env.development node --conditions=@fizzup/source ./node_modules/.bin/mikro-orm migration:up --config apps/api/src/app/config/mikro-orm.config.ts"
+        }
+      },
+      "migrations-down": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "MIKRO_ORM_ENV=.env.development node --conditions=@fizzup/source ./node_modules/.bin/mikro-orm migration:down --config apps/api/src/app/config/mikro-orm.config.ts"
+        }
+      },
+      "seed": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "MIKRO_ORM_ENV=.env.development node --conditions=@fizzup/source ./node_modules/.bin/mikro-orm seeder:run --class DatabaseSeeder --config apps/api/src/app/config/mikro-orm.config.ts"
+        }
+      },
       "serve": {
         "continuous": true,
         "executor": "@nx/js:node",
@@ -83,7 +107,9 @@
     }
   },
   "dependencies": {
+    "@mikro-orm/cli": "^6.6.9",
     "@nestjs/common": "^11.0.0",
+    "dotenv": "^16.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
     "reflect-metadata": "^0.1.13",

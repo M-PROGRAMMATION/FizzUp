@@ -1,7 +1,8 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "sync": {
-    "applyChanges": true
+    "applyChanges": true,
+    "disabledTaskSyncGenerators": ["@nx/js:typescript-sync"]
   },
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
@@ -21,6 +22,7 @@
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
+      "exclude": ["libs/shared/**"],
       "options": {
         "typecheck": {
           "targetName": "typecheck"

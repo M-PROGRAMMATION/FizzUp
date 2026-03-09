@@ -8,12 +8,12 @@ export default function Footer() {
     product: [
       { href: '#objects', label: 'Objets connectés' },
       { href: '#app', label: 'Application' },
-      { href: '#contact', label: 'Cas d\'usage' },
+      { href: '#contact', label: "Cas d'usage" },
     ],
     company: [
       { href: '#contact', label: 'À propos' },
-      { href: 'mailto:contact@fizzup.fr', label: 'Contact' },
-      { href: '#contact', label: 'Rejoindre le projet' },
+      { href: '/contact', label: 'Contact' },
+      { href: '/contact', label: 'Rejoindre le projet' },
     ],
     legal: [
       { href: '#privacy', label: 'Confidentialité' },
@@ -39,7 +39,7 @@ export default function Footer() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-4">Produit</h3>
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link href={link.href} className="text-sm text-gray-400 hover:text-white transition-colors">
                     {link.label}
                   </Link>
@@ -52,7 +52,7 @@ export default function Footer() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-4">Entreprise</h3>
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link href={link.href} className="text-sm text-gray-400 hover:text-white transition-colors">
                     {link.label}
                   </Link>
@@ -65,7 +65,7 @@ export default function Footer() {
             <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-4">Légal</h3>
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link href={link.href} className="text-sm text-gray-400 hover:text-white transition-colors">
                     {link.label}
                   </Link>

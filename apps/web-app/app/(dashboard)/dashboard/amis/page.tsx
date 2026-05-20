@@ -1,11 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import {
+  getToken, api,
+  FriendItem, FriendRequest as ApiFriendRequest, SuggestionItem,
+  UserProfile, GroupSummary,
+} from '../../../lib/api';
+
+// ── Avatar color palette (deterministic from first letter) ─────────────────────
+
+const AVATAR_PALETTES = [
+  'bg-violet-500/30 border-violet-500/40 text-violet-200',
+  'bg-pink-500/25 border-pink-500/40 text-pink-200',
+  'bg-emerald-500/25 border-emerald-500/40 text-emerald-200',
+  'bg-amber-500/25 border-amber-500/40 text-amber-200',
+  'bg-cyan-500/25 border-cyan-500/40 text-cyan-200',
+  'bg-orange-500/25 border-orange-500/40 text-orange-200',
+  'bg-rose-500/25 border-rose-500/40 text-rose-200',
+  'bg-blue-500/25 border-blue-500/40 text-blue-200',
+  'bg-teal-500/25 border-teal-500/40 text-teal-200',
+  'bg-purple-500/25 border-purple-500/40 text-purple-200',
+];
+
+function avatarColor(str: string): string {
+  return AVATAR_PALETTES[(str.charCodeAt(0) || 0) % AVATAR_PALETTES.length];
+}
+
+function formatLastSeen(iso: string | null): string | undefined {
+  if (!iso) return undefined;
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'Il y a moins d\'1h';
+  if (h < 24) return `Il y a ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'Hier';
+  return `Il y a ${d} jours`;
+}
+
+function formatSince(iso: string | null): string {
+  if (!iso) return 'Inconnu';
+  return new Date(iso).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+}
+
+function formatSentAt(iso: string | null): string {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return 'Il y a moins d\'1h';
+  if (h < 24) return `Il y a ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'Hier';
+  return `Il y a ${d} jours`;
+}
+
+// ── Local types (mapped from API) ─────────────────────────────────────────────
 
 type FriendStatus = 'online' | 'en-soiree' | 'offline';
 
 type Friend = {
-  id: string;
+  id: string; // friendshipId
+  userId: string; // actual user id
   name: string;
   username: string;
   avatar: string;
@@ -14,14 +68,7 @@ type Friend = {
   lastSeen?: string;
   mutualGroups: string[];
   mutualFriends: number;
-  stats: {
-    verres: number;
-    bouteilles: number;
-    soirees: number;
-    streak: number;
-    points: number;
-    rank: number;
-  };
+  stats: { verres: number; bouteilles: number; soirees: number; streak: number; points: number };
   badges: string[];
   friendSince: string;
   currentActivity?: string;
@@ -48,155 +95,77 @@ type SuggestedUser = {
   mutualGroups: string[];
 };
 
-const MY_STATS = { verres: 4841, bouteilles: 1613, soirees: 131, streak: 6, points: 2840, rank: 5 };
+// ── Mapping helpers ────────────────────────────────────────────────────────────
 
-const FRIENDS: Friend[] = [
-  {
-    id: '1',
-    name: 'Alex M.',
-    username: '@alex_m',
-    avatar: 'A',
-    avatarColor: 'bg-violet-500/30 border-violet-500/40 text-violet-200',
-    status: 'en-soiree',
-    mutualGroups: ['Les Potes du Jeudi'],
-    mutualFriends: 4,
-    stats: { verres: 8421, bouteilles: 2807, soirees: 214, streak: 12, points: 6200, rank: 1 },
-    badges: ['🏆', '🔥', '👑'],
-    friendSince: 'janv. 2024',
-    currentActivity: 'Soirée cave · Coloc Voltaire',
-  },
-  {
-    id: '2',
-    name: 'Julie R.',
-    username: '@julie_r',
-    avatar: 'J',
-    avatarColor: 'bg-pink-500/25 border-pink-500/40 text-pink-200',
-    status: 'online',
-    mutualGroups: ['Les Potes du Jeudi', 'Festival Vibe'],
-    mutualFriends: 3,
-    stats: { verres: 6987, bouteilles: 2329, soirees: 177, streak: 5, points: 4900, rank: 3 },
-    badges: ['⚡', '🎵'],
-    friendSince: 'fév. 2024',
-    currentActivity: undefined,
-  },
-  {
-    id: '3',
-    name: 'Tom B.',
-    username: '@tom_b',
-    avatar: 'T',
-    avatarColor: 'bg-emerald-500/25 border-emerald-500/40 text-emerald-200',
-    status: 'offline',
-    lastSeen: 'Il y a 3h',
-    mutualGroups: ['Coloc Voltaire'],
-    mutualFriends: 2,
-    stats: { verres: 5654, bouteilles: 1884, soirees: 153, streak: 3, points: 3800, rank: 4 },
-    badges: ['🥉'],
-    friendSince: 'mars 2024',
-    currentActivity: undefined,
-  },
-  {
-    id: '4',
-    name: 'Camille D.',
-    username: '@camille_d',
-    avatar: 'C',
-    avatarColor: 'bg-amber-500/25 border-amber-500/40 text-amber-200',
-    status: 'offline',
-    lastSeen: 'Hier',
-    mutualGroups: ['Les Potes du Jeudi'],
-    mutualFriends: 5,
-    stats: { verres: 4198, bouteilles: 1399, soirees: 118, streak: 2, points: 2400, rank: 6 },
-    badges: ['🎉'],
-    friendSince: 'janv. 2024',
-    currentActivity: undefined,
-  },
-  {
-    id: '5',
-    name: 'Léa K.',
-    username: '@lea_k',
-    avatar: 'L',
-    avatarColor: 'bg-cyan-500/25 border-cyan-500/40 text-cyan-200',
-    status: 'online',
-    mutualGroups: ['Coloc Voltaire', 'Festival Vibe'],
-    mutualFriends: 3,
-    stats: { verres: 3876, bouteilles: 1292, soirees: 104, streak: 1, points: 2100, rank: 7 },
-    badges: ['🦋'],
-    friendSince: 'avril 2024',
-    currentActivity: undefined,
-  },
-  {
-    id: '6',
-    name: 'Romain V.',
-    username: '@romain_v',
-    avatar: 'R',
-    avatarColor: 'bg-orange-500/25 border-orange-500/40 text-orange-200',
-    status: 'en-soiree',
-    mutualGroups: ['Coloc Voltaire'],
-    mutualFriends: 1,
-    stats: { verres: 7234, bouteilles: 2411, soirees: 189, streak: 4, points: 5100, rank: 2 },
-    badges: ['🥈', '⚔️'],
-    friendSince: 'mai 2024',
-    currentActivity: 'Soirée Terrasse · Coloc Voltaire',
-  },
-];
+function mapFriend(item: FriendItem): Friend {
+  const u = item.user;
+  const name = u.displayName || u.username || u.email;
+  const letter = name.charAt(0).toUpperCase();
+  const status = (u.status === 'en-soiree' ? 'en-soiree' : u.status === 'online' ? 'online' : 'offline') as FriendStatus;
+  return {
+    id: item.friendshipId,
+    userId: u.id,
+    name,
+    username: u.username.startsWith('@') ? u.username : `@${u.username}`,
+    avatar: letter,
+    avatarColor: avatarColor(letter),
+    status,
+    lastSeen: formatLastSeen(u.lastSeen ?? null),
+    mutualGroups: item.mutualGroups,
+    mutualFriends: item.mutualFriends,
+    stats: {
+      verres: u.totalVerres,
+      bouteilles: u.totalBouteilles,
+      soirees: u.totalSoirees,
+      streak: u.streak,
+      points: u.points,
+    },
+    badges: u.badges,
+    friendSince: formatSince(item.since),
+    currentActivity: u.currentActivity ?? undefined,
+  };
+}
 
-const REQUESTS: FriendRequest[] = [
-  {
-    id: 'r1',
-    name: 'Sarah M.',
-    username: '@sarah_m',
-    avatar: 'S',
-    avatarColor: 'bg-rose-500/25 border-rose-500/40 text-rose-200',
-    mutualFriends: 2,
-    mutualGroups: ['Festival Vibe'],
-    sentAt: 'Il y a 2h',
-  },
-  {
-    id: 'r2',
-    name: 'Baptiste L.',
-    username: '@bap_l',
-    avatar: 'B',
-    avatarColor: 'bg-blue-500/25 border-blue-500/40 text-blue-200',
-    mutualFriends: 1,
-    mutualGroups: [],
-    sentAt: 'Il y a 1 jour',
-  },
-];
+function mapRequest(item: ApiFriendRequest): FriendRequest {
+  const u = item.user;
+  const name = u.displayName || u.username || u.email;
+  const letter = name.charAt(0).toUpperCase();
+  return {
+    id: item.id,
+    name,
+    username: u.username.startsWith('@') ? u.username : `@${u.username}`,
+    avatar: letter,
+    avatarColor: avatarColor(letter),
+    mutualFriends: item.mutualFriends,
+    mutualGroups: item.mutualGroups,
+    sentAt: formatSentAt(item.sentAt),
+  };
+}
 
-const SUGGESTIONS: SuggestedUser[] = [
-  {
-    id: 's1',
-    name: 'Marie C.',
-    username: '@marie_c',
-    avatar: 'M',
-    avatarColor: 'bg-purple-500/25 border-purple-500/40 text-purple-200',
-    mutualFriends: 4,
-    mutualGroups: ['Festival Vibe'],
-  },
-  {
-    id: 's2',
-    name: 'Hugo P.',
-    username: '@hugo_p',
-    avatar: 'H',
-    avatarColor: 'bg-teal-500/25 border-teal-500/40 text-teal-200',
-    mutualFriends: 2,
-    mutualGroups: ['Les Potes du Jeudi'],
-  },
-  {
-    id: 's3',
-    name: 'Noémie A.',
-    username: '@noe_a',
-    avatar: 'N',
-    avatarColor: 'bg-lime-500/25 border-lime-500/40 text-lime-200',
-    mutualFriends: 1,
-    mutualGroups: [],
-  },
-];
+function mapSuggestion(item: SuggestionItem): SuggestedUser {
+  const u = item.user;
+  const name = u.displayName || u.username || u.email;
+  const letter = name.charAt(0).toUpperCase();
+  return {
+    id: item.id,
+    name,
+    username: u.username.startsWith('@') ? u.username : `@${u.username}`,
+    avatar: letter,
+    avatarColor: avatarColor(letter),
+    mutualFriends: item.mutualFriends,
+    mutualGroups: item.mutualGroups,
+  };
+}
+
+// ── Status config ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<FriendStatus, { label: string; dot: string; text: string }> = {
   online: { label: 'En ligne', dot: 'bg-emerald-400', text: 'text-emerald-400' },
   'en-soiree': { label: 'En soirée 🎉', dot: 'bg-violet-400 animate-pulse', text: 'text-violet-300' },
   offline: { label: 'Hors ligne', dot: 'bg-gray-600', text: 'text-gray-600' },
 };
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function Avatar({ letter, color, size = 'md' }: { letter: string; color: string; size?: 'sm' | 'md' | 'lg' }) {
   const sizes = { sm: 'w-8 h-8 text-xs', md: 'w-10 h-10 text-sm', lg: 'w-14 h-14 text-xl' };
@@ -251,7 +220,6 @@ function FriendCard({ friend, onSelect, selected }: { friend: Friend; onSelect: 
       }`}
       style={{ background: selected ? 'rgba(139,92,246,0.07)' : friend.status === 'en-soiree' ? 'rgba(139,92,246,0.04)' : 'rgba(255,255,255,0.025)' }}
     >
-      {/* Top */}
       <div className="flex items-start gap-3">
         <div className="relative">
           <Avatar letter={friend.avatar} color={friend.avatarColor} size="md" />
@@ -265,13 +233,8 @@ function FriendCard({ friend, onSelect, selected }: { friend: Friend; onSelect: 
           <p className="text-xs text-gray-600">{friend.username}</p>
           <p className={`text-[10px] font-medium ${sc.text} mt-0.5`}>{sc.label}</p>
         </div>
-        <div className="text-right shrink-0">
-          <p className="text-xs font-black text-white">#{friend.stats.rank}</p>
-          <p className="text-[10px] text-gray-600">Global</p>
-        </div>
       </div>
 
-      {/* Activité */}
       {friend.currentActivity && (
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/20">
           <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse shrink-0" />
@@ -279,7 +242,6 @@ function FriendCard({ friend, onSelect, selected }: { friend: Friend; onSelect: 
         </div>
       )}
 
-      {/* Stats mini */}
       <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/5">
         <div className="text-center">
           <p className="text-sm font-black text-white">{friend.stats.verres.toLocaleString()}</p>
@@ -295,7 +257,6 @@ function FriendCard({ friend, onSelect, selected }: { friend: Friend; onSelect: 
         </div>
       </div>
 
-      {/* Groupes communs */}
       {friend.mutualGroups.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {friend.mutualGroups.map((g) => (
@@ -307,11 +268,10 @@ function FriendCard({ friend, onSelect, selected }: { friend: Friend; onSelect: 
   );
 }
 
-function FriendDetail({ friend }: { friend: Friend }) {
+function FriendDetail({ friend, myProfile, onRemove, onInvite }: { friend: Friend; myProfile: UserProfile | null; onRemove: () => void; onInvite: () => void }) {
   const sc = STATUS_CONFIG[friend.status];
   return (
     <div className="space-y-4 sticky top-8">
-      {/* Profile card */}
       <div className="rounded-2xl border border-white/10 p-6" style={{ background: 'rgba(255,255,255,0.03)' }}>
         <div className="flex flex-col items-center text-center gap-3 mb-5">
           <div className="relative">
@@ -324,11 +284,13 @@ function FriendDetail({ friend }: { friend: Friend }) {
             <p className={`text-xs font-medium ${sc.text} mt-1`}>{sc.label}</p>
             {friend.lastSeen && <p className="text-[10px] text-gray-700 mt-0.5">{friend.lastSeen}</p>}
           </div>
-          <div className="flex gap-1.5">
-            {friend.badges.map((b, i) => (
-              <span key={i} className="text-xl">{b}</span>
-            ))}
-          </div>
+          {friend.badges.length > 0 && (
+            <div className="flex gap-1.5">
+              {friend.badges.map((b, i) => (
+                <span key={i} className="text-xl">{b}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {friend.currentActivity && (
@@ -350,24 +312,24 @@ function FriendDetail({ friend }: { friend: Friend }) {
         </div>
       </div>
 
-      {/* Comparaison */}
-      <div className="rounded-2xl border border-white/10 p-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">Comparaison all time</p>
-          <div className="flex items-center gap-3 text-[10px]">
-            <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-violet-500" /> Toi</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-white/30" /> {friend.name.split(' ')[0]}</span>
+      {myProfile && (
+        <div className="rounded-2xl border border-white/10 p-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600">Comparaison all time</p>
+            <div className="flex items-center gap-3 text-[10px]">
+              <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-violet-500" /> Toi</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-1.5 rounded-full bg-white/30" /> {friend.name.split(' ')[0]}</span>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <CompareBar myVal={myProfile.totalVerres} friendVal={friend.stats.verres} label="Verres" />
+            <CompareBar myVal={myProfile.totalBouteilles} friendVal={friend.stats.bouteilles} label="Bouteilles" />
+            <CompareBar myVal={myProfile.totalSoirees} friendVal={friend.stats.soirees} label="Soirées" />
+            <CompareBar myVal={myProfile.points} friendVal={friend.stats.points} label="Points" />
           </div>
         </div>
-        <div className="space-y-4">
-          <CompareBar myVal={MY_STATS.verres} friendVal={friend.stats.verres} label="Verres" />
-          <CompareBar myVal={MY_STATS.bouteilles} friendVal={friend.stats.bouteilles} label="Bouteilles" />
-          <CompareBar myVal={MY_STATS.soirees} friendVal={friend.stats.soirees} label="Soirées" />
-          <CompareBar myVal={MY_STATS.points} friendVal={friend.stats.points} label="Points" />
-        </div>
-      </div>
+      )}
 
-      {/* Groupes communs */}
       {friend.mutualGroups.length > 0 && (
         <div className="rounded-2xl border border-white/10 p-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600 mb-3">Groupes en commun</p>
@@ -382,22 +344,21 @@ function FriendDetail({ friend }: { friend: Friend }) {
         </div>
       )}
 
-      {/* Actions */}
       <div className="rounded-2xl border border-white/10 p-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
         <div className="space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-violet-500/12 border border-violet-500/25 text-violet-300 text-sm font-medium hover:bg-violet-500/18 transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Voir son classement
-          </button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/4 border border-white/8 text-gray-300 text-sm font-medium hover:bg-white/8 transition-colors">
+          <button
+            onClick={onInvite}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/4 border border-white/8 text-violet-300 text-sm font-medium hover:bg-violet-500/8 hover:text-violet-200 transition-colors"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             Inviter dans un groupe
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/4 border border-white/8 text-red-500/70 text-sm font-medium hover:bg-red-500/8 hover:text-red-400 transition-colors">
+          <button
+            onClick={onRemove}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/4 border border-white/8 text-red-500/70 text-sm font-medium hover:bg-red-500/8 hover:text-red-400 transition-colors"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
             </svg>
@@ -409,39 +370,106 @@ function FriendDetail({ friend }: { friend: Friend }) {
   );
 }
 
+// ── Main page ──────────────────────────────────────────────────────────────────
+
 export default function AmisPage() {
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
+  const [myProfile, setMyProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [requests, setRequests] = useState(REQUESTS);
-  const [suggestions, setSuggestions] = useState(SUGGESTIONS);
   const [addedSuggestions, setAddedSuggestions] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<'amis' | 'demandes' | 'suggestions'>('amis');
+  const [inviteTarget, setInviteTarget] = useState<Friend | null>(null);
+  const [myGroups, setMyGroups] = useState<GroupSummary[]>([]);
+  const [invitingGroupId, setInvitingGroupId] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<Set<string>>(new Set());
 
-  const selectedFriend = FRIENDS.find((f) => f.id === selectedId) ?? null;
+  useEffect(() => {
+    const token = getToken();
+    if (!token) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all([
+      api.friends.getAll(token).then((data) => setFriends(data.map(mapFriend))).catch(() => null),
+      api.friends.getRequests(token).then((data) => setRequests(data.map(mapRequest))).catch(() => null),
+      api.friends.getSuggestions(token).then((data) => setSuggestions(data.map(mapSuggestion))).catch(() => null),
+      api.profiles.getMe(token).then(setMyProfile).catch(() => null),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!inviteTarget) return;
+    const token = getToken();
+    if (!token) return;
+    api.groups.getAll(token).then(setMyGroups).catch(() => null);
+  }, [inviteTarget]);
+
+  const selectedFriend = friends.find((f) => f.id === selectedId) ?? null;
 
   function toggleSelect(id: string) {
     setSelectedId((prev) => (prev === id ? null : id));
   }
 
-  const online = FRIENDS.filter((f) => f.status === 'online' || f.status === 'en-soiree');
-  const offline = FRIENDS.filter((f) => f.status === 'offline');
+  const online = friends.filter((f) => f.status === 'online' || f.status === 'en-soiree');
+  const offline = friends.filter((f) => f.status === 'offline');
 
   const filteredFriends = search.trim()
-    ? FRIENDS.filter(
+    ? friends.filter(
         (f) =>
           f.name.toLowerCase().includes(search.toLowerCase()) ||
           f.username.toLowerCase().includes(search.toLowerCase())
       )
-    : FRIENDS;
+    : friends;
 
-  function acceptRequest(id: string) {
-    setRequests((prev) => prev.filter((r) => r.id !== id));
+  async function acceptRequest(id: string) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await api.friends.acceptRequest(token, id);
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+      // Refresh friends list
+      const data = await api.friends.getAll(token);
+      setFriends(data.map(mapFriend));
+    } catch {
+      /* ignore */
+    }
   }
+
   function declineRequest(id: string) {
     setRequests((prev) => prev.filter((r) => r.id !== id));
   }
-  function addSuggestion(id: string) {
-    setAddedSuggestions((prev) => new Set([...prev, id]));
+
+  async function addSuggestion(userId: string) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await api.friends.sendRequest(token, userId);
+      setAddedSuggestions((prev) => new Set([...prev, userId]));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function removeFriend(friendshipId: string) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await api.friends.remove(token, friendshipId);
+      setFriends((prev) => prev.filter((f) => f.id !== friendshipId));
+      setSelectedId(null);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-gray-600 text-sm">
+        Chargement…
+      </div>
+    );
   }
 
   return (
@@ -451,10 +479,13 @@ export default function AmisPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">Ami(e)s</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            {FRIENDS.length} ami(e)s · {online.length} en ligne
+            {friends.length} ami(e)s · {online.length} en ligne
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 transition-colors text-white text-sm font-semibold">
+        <button
+          onClick={() => setTab('suggestions')}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 transition-colors text-white text-sm font-semibold"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
           </svg>
@@ -465,8 +496,8 @@ export default function AmisPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: 'Amis total', value: FRIENDS.length, color: 'text-white', bg: 'bg-white/4 border-white/8' },
-          { label: 'En soirée', value: FRIENDS.filter(f => f.status === 'en-soiree').length, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
+          { label: 'Amis total', value: friends.length, color: 'text-white', bg: 'bg-white/4 border-white/8' },
+          { label: 'En soirée', value: friends.filter(f => f.status === 'en-soiree').length, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
           { label: 'En ligne', value: online.length, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
           { label: 'Demandes', value: requests.length, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
         ].map((s) => (
@@ -480,7 +511,7 @@ export default function AmisPage() {
       {/* Tabs */}
       <div className="flex items-center gap-1 p-1 rounded-xl border border-white/8 w-fit" style={{ background: 'rgba(255,255,255,0.03)' }}>
         {([
-          { key: 'amis', label: 'Mes amis', count: FRIENDS.length },
+          { key: 'amis', label: 'Mes amis', count: friends.length },
           { key: 'demandes', label: 'Demandes', count: requests.length },
           { key: 'suggestions', label: 'Suggestions', count: suggestions.length },
         ] as const).map((t) => (
@@ -516,6 +547,13 @@ export default function AmisPage() {
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/4 border border-white/8 text-sm text-white placeholder-gray-600 outline-none focus:border-violet-500/40 transition-colors"
               />
             </div>
+
+            {friends.length === 0 && !search && (
+              <div className="py-16 text-center text-gray-600">
+                <p className="text-4xl mb-3">👥</p>
+                <p className="text-sm">Vous n'avez encore aucun ami. Consultez les suggestions !</p>
+              </div>
+            )}
 
             {/* En ligne / en soirée */}
             {!search && online.length > 0 && (
@@ -558,8 +596,14 @@ export default function AmisPage() {
             )}
           </div>
 
-          {/* Détail — only shown when a friend is selected */}
-          {selectedFriend && <FriendDetail friend={selectedFriend} />}
+          {selectedFriend && (
+            <FriendDetail
+              friend={selectedFriend}
+              myProfile={myProfile}
+              onRemove={() => removeFriend(selectedFriend.id)}
+              onInvite={() => setInviteTarget(selectedFriend)}
+            />
+          )}
         </div>
       )}
 
@@ -589,7 +633,7 @@ export default function AmisPage() {
                   {req.mutualGroups.length > 0 && (
                     <span className="text-[10px] text-gray-600">· {req.mutualGroups[0]}</span>
                   )}
-                  <span className="text-[10px] text-gray-700">{req.sentAt}</span>
+                  {req.sentAt && <span className="text-[10px] text-gray-700">{req.sentAt}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -615,6 +659,12 @@ export default function AmisPage() {
       {tab === 'suggestions' && (
         <div className="max-w-xl space-y-3">
           <p className="text-xs text-gray-600">Personnes que vous pourriez connaître, basé sur vos groupes et amis communs.</p>
+          {suggestions.length === 0 && (
+            <div className="py-16 text-center text-gray-600">
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="text-sm">Aucune suggestion pour l'instant</p>
+            </div>
+          )}
           {suggestions.map((s) => (
             <div
               key={s.id}
@@ -656,6 +706,71 @@ export default function AmisPage() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ---- Invite to group modal ---- */}
+      {inviteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-sm rounded-2xl border border-white/12 p-6 space-y-4" style={{ background: 'rgba(10,10,15,0.98)' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white">Inviter {inviteTarget.name}</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Choisissez un groupe</p>
+              </div>
+              <button onClick={() => { setInviteTarget(null); setInvitingGroupId(null); }} className="text-gray-500 hover:text-white">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {myGroups.length === 0 && <p className="text-gray-600 text-sm text-center py-4">Aucun groupe</p>}
+              {myGroups.map((g) => {
+                const key = `${g.id}-${inviteTarget.userId}`;
+                const sent = inviteSuccess.has(key);
+                return (
+                  <button
+                    key={g.id}
+                    onClick={async () => {
+                      if (sent) return;
+                      const token = getToken();
+                      if (!token) return;
+                      setInvitingGroupId(g.id);
+                      try {
+                        await api.groups.invite(token, g.id, inviteTarget.userId);
+                        setInviteSuccess((prev) => new Set([...prev, key]));
+                      } catch {
+                        /* ignore */
+                      } finally {
+                        setInvitingGroupId(null);
+                      }
+                    }}
+                    disabled={!!invitingGroupId || sent}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+                      sent
+                        ? 'border-emerald-500/25 bg-emerald-500/8 text-emerald-400 cursor-default'
+                        : 'border-white/8 hover:border-violet-500/30 hover:bg-violet-500/8 text-white'
+                    }`}
+                  >
+                    <span className="text-xl">{g.emoji}</span>
+                    <span className="flex-1 text-sm font-medium truncate">{g.name}</span>
+                    {sent ? (
+                      <span className="text-xs text-emerald-400">✓ Invité</span>
+                    ) : invitingGroupId === g.id ? (
+                      <span className="text-xs text-gray-500">…</span>
+                    ) : (
+                      <span className="text-xs text-gray-500">{g.memberCount} membres</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => { setInviteTarget(null); setInvitingGroupId(null); }}
+              className="w-full px-4 py-2.5 rounded-xl border border-white/8 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, getToken, type AdminUser } from '../../../../lib/api';
+import { exportCsv } from '../../../../lib/csv';
 
 type Role = 'admin' | 'user' | 'mod';
 type Status = 'active' | 'banned' | 'suspended';
@@ -128,7 +129,18 @@ export default function AdminUsersPage() {
           <h1 className="text-2xl font-bold text-white">Gestion des utilisateurs</h1>
           <p className="text-sm text-gray-500 mt-1">{users.length} comptes enregistrés</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20 text-sm font-medium hover:bg-amber-500/20 transition-colors">
+        <button
+          onClick={() => exportCsv(filtered, [
+            { key: 'id', label: 'ID' },
+            { key: 'email', label: 'Email' },
+            { key: 'username', label: 'Pseudo' },
+            { key: 'role', label: 'Rôle' },
+            { key: 'status', label: 'Statut' },
+            { key: 'createdAt', label: 'Inscription' },
+            { key: 'updatedAt', label: 'Dernière mise à jour' },
+          ], `utilisateurs_${new Date().toISOString().slice(0, 10)}.csv`)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20 text-sm font-medium hover:bg-amber-500/20 transition-colors"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>

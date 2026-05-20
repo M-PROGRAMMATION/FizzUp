@@ -1,42 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { api, getToken, type AdminLog } from '../../../../lib/api';
+import { exportCsv } from '../../../../lib/csv';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'success';
 type LogCategory = 'auth' | 'user' | 'device' | 'system' | 'payment' | 'security';
-
-interface LogEntry {
-  id: string;
-  timestamp: string;
-  level: LogLevel;
-  category: LogCategory;
-  message: string;
-  actor?: string;
-  target?: string;
-  ip?: string;
-  details?: string;
-}
-
-const LOGS: LogEntry[] = [
-  { id: 'l001', timestamp: '2026-03-09T14:32:11', level: 'error', category: 'device', message: 'Capteur CO₂ défaillant détecté', actor: 'SYSTÈME', target: 'FizzTap Pro #2 (FTP-2024-002)', ip: '10.0.0.14', details: 'Valeur hors plage : -12.3 ppm. Seuil minimal : 0 ppm.' },
-  { id: 'l002', timestamp: '2026-03-09T14:28:44', level: 'warn', category: 'security', message: 'Tentatives de connexion répétées échouées', actor: 'unknown@mail.com', ip: '185.220.101.33', details: '7 tentatives en 3 minutes depuis une IP non reconnue.' },
-  { id: 'l003', timestamp: '2026-03-09T14:15:02', level: 'success', category: 'user', message: 'Compte utilisateur créé', actor: 'emma.b@gmail.com', target: 'User #10 (EmmaB)' },
-  { id: 'l004', timestamp: '2026-03-09T13:58:30', level: 'info', category: 'auth', message: 'Connexion réussie', actor: 'thomas.martin@gmail.com', ip: '82.64.112.45' },
-  { id: 'l005', timestamp: '2026-03-09T13:45:17', level: 'info', category: 'device', message: 'Appareil enregistré', actor: 'ThomasM', target: 'FizzTap Standard (FTS-2024-007)' },
-  { id: 'l006', timestamp: '2026-03-09T13:22:08', level: 'warn', category: 'device', message: 'Appareil hors ligne depuis 72h', target: 'FizzCap Basic (FCB-2024-201)', details: 'Dernière connexion : 2026-03-06T08:11:22' },
-  { id: 'l007', timestamp: '2026-03-09T12:55:44', level: 'error', category: 'system', message: 'Erreur base de données — timeout', actor: 'SYSTÈME', ip: '10.0.0.1', details: 'Query timeout après 30s. Table: sessions. Requête relancée avec succès.' },
-  { id: 'l008', timestamp: '2026-03-09T12:41:19', level: 'success', category: 'user', message: 'Rôle utilisateur modifié', actor: 'thomas.martin@gmail.com (admin)', target: 'NicoP → moderator' },
-  { id: 'l009', timestamp: '2026-03-09T12:08:33', level: 'info', category: 'auth', message: 'Déconnexion', actor: 'alex.dupont@gmail.com', ip: '78.192.44.201' },
-  { id: 'l010', timestamp: '2026-03-09T11:44:22', level: 'warn', category: 'security', message: 'Accès back-office depuis IP inconnue', actor: 'thomas.martin@gmail.com', ip: '195.154.37.218', details: 'Première connexion depuis cette adresse IP.' },
-  { id: 'l011', timestamp: '2026-03-09T11:21:05', level: 'success', category: 'device', message: 'Firmware mis à jour', target: 'FizzCap Elite (FCE-2024-089)', details: 'v1.9.2 → v1.9.3' },
-  { id: 'l012', timestamp: '2026-03-09T10:58:47', level: 'error', category: 'payment', message: 'Échec de paiement abonnement', actor: 'camille.r@free.fr', details: 'Carte refusée. Code erreur : insufficient_funds.' },
-  { id: 'l013', timestamp: '2026-03-09T10:33:14', level: 'info', category: 'user', message: 'Export données demandé (RGPD)', actor: 'sophie.b@outlook.fr' },
-  { id: 'l014', timestamp: '2026-03-09T10:11:38', level: 'success', category: 'auth', message: 'Inscription vérifiée', actor: 'SYSTÈME', target: 'paul.garnier@outlook.com' },
-  { id: 'l015', timestamp: '2026-03-09T09:47:22', level: 'warn', category: 'system', message: 'Utilisation CPU élevée', actor: 'SYSTÈME', ip: '10.0.0.1', details: 'CPU à 87% pendant 5 minutes. Processus : image-processing-worker.' },
-  { id: 'l016', timestamp: '2026-03-09T09:22:11', level: 'error', category: 'security', message: 'Compte utilisateur banni', actor: 'thomas.martin@gmail.com (admin)', target: 'maxime.lb@gmail.com (MaximeLB)', details: 'Raison : comportement abusif répété.' },
-  { id: 'l017', timestamp: '2026-03-09T08:55:03', level: 'info', category: 'system', message: 'Démarrage du serveur', actor: 'SYSTÈME', details: 'Node.js 20.11.0 — NestJS 10.3.2' },
-  { id: 'l018', timestamp: '2026-03-09T08:30:00', level: 'success', category: 'system', message: 'Backup base de données effectué', actor: 'SYSTÈME', details: 'Durée : 4m12s — Taille : 2.3 GB' },
-];
 
 const LEVEL_STYLES: Record<LogLevel, string> = {
   info: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
@@ -69,13 +38,40 @@ function formatDate(iso: string) {
 }
 
 export default function AdminLogsPage() {
+  const [logs, setLogs] = useState<AdminLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [levelFilter, setLevelFilter] = useState<'all' | LogLevel>('all');
   const [catFilter, setCatFilter] = useState<'all' | LogCategory>('all');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  const filtered = LOGS.filter(l => {
+  const fetchLogs = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const data = await api.admin.getLogs(token);
+      setLogs(data);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors du chargement des logs');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchLogs, 5000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchLogs]);
+
+  const filtered = logs.filter(l => {
     const matchLevel = levelFilter === 'all' || l.level === levelFilter;
     const matchCat = catFilter === 'all' || l.category === catFilter;
     const matchSearch = !search || l.message.toLowerCase().includes(search.toLowerCase())
@@ -85,10 +81,10 @@ export default function AdminLogsPage() {
   });
 
   const counts = {
-    error: LOGS.filter(l => l.level === 'error').length,
-    warn: LOGS.filter(l => l.level === 'warn').length,
-    info: LOGS.filter(l => l.level === 'info').length,
-    success: LOGS.filter(l => l.level === 'success').length,
+    error: logs.filter(l => l.level === 'error').length,
+    warn: logs.filter(l => l.level === 'warn').length,
+    info: logs.filter(l => l.level === 'info').length,
+    success: logs.filter(l => l.level === 'success').length,
   };
 
   return (
@@ -110,7 +106,29 @@ export default function AdminLogsPage() {
             <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-gray-600'}`} />
             {autoRefresh ? 'Live' : 'Refresh off'}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20 text-sm font-medium hover:bg-amber-500/20 transition-colors">
+          <button
+            onClick={fetchLogs}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/4 text-gray-400 border border-white/8 text-sm font-medium hover:bg-white/6 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Actualiser
+          </button>
+          <button
+            onClick={() => exportCsv(filtered, [
+              { key: 'id', label: 'ID' },
+              { key: 'timestamp', label: 'Horodatage' },
+              { key: 'level', label: 'Niveau' },
+              { key: 'category', label: 'Catégorie' },
+              { key: 'message', label: 'Message' },
+              { key: 'actor', label: 'Acteur' },
+              { key: 'target', label: 'Cible' },
+              { key: 'ip', label: 'IP' },
+              { key: 'details', label: 'Détails' },
+            ], `logs_${new Date().toISOString().slice(0, 10)}.csv`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20 text-sm font-medium hover:bg-amber-500/20 transition-colors"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -128,7 +146,7 @@ export default function AdminLogsPage() {
             className={`rounded-2xl border p-4 text-left transition-all ${levelFilter === lvl ? LEVEL_STYLES[lvl] + ' ring-1 ring-inset' : 'border-white/8 hover:border-white/12'}`}
             style={levelFilter !== lvl ? { background: 'var(--fz-bg-surface)' } : undefined}
           >
-            <div className="text-2xl font-mono font-bold mb-1 text-white">{counts[lvl]}</div>
+            <div className="text-2xl font-mono font-bold mb-1 text-white">{loading ? '—' : counts[lvl]}</div>
             <div className="text-xs text-gray-500 flex items-center gap-1.5">
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${LEVEL_STYLES[lvl]}`}>{LEVEL_ICONS[lvl]}</span>
               {LEVEL_LABELS[lvl]}
@@ -169,15 +187,28 @@ export default function AdminLogsPage() {
 
         {/* Entries */}
         <div className="divide-y divide-white/4 font-mono text-xs">
-          {filtered.map(log => (
+          {loading && (
+            <div className="px-4 py-12 text-center">
+              <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-gray-600 font-sans text-sm">Chargement des logs…</p>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="px-4 py-12 text-center">
+              <p className="text-red-400 font-sans text-sm">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && filtered.map(log => (
             <div key={log.id}>
               <div
                 className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${expandedId === log.id ? 'bg-white/4' : 'hover:bg-white/2'}`}
                 onClick={() => setExpandedId(v => v === log.id ? null : log.id)}
               >
                 {/* Level badge */}
-                <span className={`shrink-0 mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border leading-none ${LEVEL_STYLES[log.level]}`}>
-                  {LEVEL_ICONS[log.level]}
+                <span className={`shrink-0 mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border leading-none ${LEVEL_STYLES[log.level as LogLevel] ?? 'bg-white/8 text-gray-400 border-white/12'}`}>
+                  {LEVEL_ICONS[log.level as LogLevel] ?? '•'}
                 </span>
 
                 {/* Timestamp */}
@@ -187,8 +218,8 @@ export default function AdminLogsPage() {
                 </div>
 
                 {/* Category */}
-                <span className={`shrink-0 mt-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded ${CAT_STYLES[log.category]}`}>
-                  {CAT_LABELS[log.category].toUpperCase()}
+                <span className={`shrink-0 mt-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded ${CAT_STYLES[log.category as LogCategory] ?? 'text-gray-400 bg-white/6'}`}>
+                  {(CAT_LABELS[log.category as LogCategory] ?? log.category).toUpperCase()}
                 </span>
 
                 {/* Message */}
@@ -221,7 +252,7 @@ export default function AdminLogsPage() {
             </div>
           ))}
 
-          {filtered.length === 0 && (
+          {!loading && !error && filtered.length === 0 && (
             <div className="px-4 py-12 text-center">
               <p className="text-gray-600 font-sans text-sm">Aucun log correspondant aux filtres.</p>
             </div>

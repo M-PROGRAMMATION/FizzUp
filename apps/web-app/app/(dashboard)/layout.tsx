@@ -134,11 +134,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<{ id: string; email: string; role: string } | null>(null);
+  const [notifCount, setNotifCount] = useState(0);
 
   useEffect(() => {
     const token = getToken();
     if (!token) { router.replace('/login'); return; }
     api.auth.me(token).then(setUser).catch(() => { removeToken(); router.replace('/login'); });
+    api.notifications.getUnreadCount(token).then(d => setNotifCount(d.count)).catch(() => null);
   }, [router]);
 
   if (!user) {
@@ -180,7 +182,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {group.items.map((item) => (
                   <NavLink
                     key={item.href}
-                    item={item}
+                    item={item.href === '/dashboard/notifications'
+                      ? { ...item, badge: notifCount > 0 ? notifCount : undefined }
+                      : item}
                     active={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                     admin={group.adminOnly}
                   />
@@ -204,7 +208,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </svg>
           </Link>
           <button
-            onClick={() => { removeToken(); router.push('/login'); }}
+            onClick={async () => { const t = getToken(); if (t) await api.auth.logout(t); removeToken(); router.push('/login'); }}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-red-400 hover:bg-red-500/8 border border-transparent transition-all duration-150"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

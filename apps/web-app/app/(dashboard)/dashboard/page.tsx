@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getToken, api } from '../../lib/api';
+import { getToken, api, BadgeItem, UserProfile } from '../../lib/api';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, RadialBarChart, RadialBar,
 } from 'recharts';
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Mock data (charts / leaderboard / devices stay static for now) ─────────────
 
 const weeklyConsumption = [
   { day: 'Lun', verres: 24, bouteilles: 8 },
@@ -83,10 +83,16 @@ const tooltipStyle = {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<{ id: string; email: string; role: string } | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [badges, setBadges] = useState<BadgeItem[]>([]);
 
   useEffect(() => {
     const token = getToken();
-    if (token) api.auth.me(token).then(setUser).catch(() => null);
+    if (token) {
+      api.auth.me(token).then(setUser).catch(() => null);
+      api.profiles.getMe(token).then(setProfile).catch(() => null);
+      api.badges.getMe(token).then(setBadges).catch(() => null);
+    }
   }, []);
 
   const greeting = () => {
@@ -115,30 +121,27 @@ export default function DashboardPage() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Verres cette semaine"
-          value="324"
+          label="Verres total"
+          value={profile ? profile.totalVerres.toLocaleString() : '—'}
           sub="Tireuses connectées"
-          trend={{ value: '+18%', up: true }}
           icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>}
         />
         <StatCard
           label="Bouteilles décapsulées"
-          value="116"
+          value={profile ? profile.totalBouteilles.toLocaleString() : '—'}
           sub="Décapsuleurs connectés"
-          trend={{ value: '+7%', up: true }}
           icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
         />
         <StatCard
-          label="Appareils actifs"
-          value="3 / 4"
-          sub="1 hors-ligne"
+          label="Soirées"
+          value={profile ? profile.totalSoirees.toLocaleString() : '—'}
+          sub={profile?.streak ? `🔥 ${profile.streak} jours de streak` : 'Aucun streak actif'}
           icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>}
         />
         <StatCard
-          label="Classement"
-          value="#5"
-          sub="Dans votre groupe"
-          trend={{ value: '+2 places', up: true }}
+          label="Points"
+          value={profile ? profile.points.toLocaleString() : '—'}
+          sub="Score global"
           icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>}
         />
       </div>
@@ -275,31 +278,28 @@ export default function DashboardPage() {
       <div className="rounded-2xl border border-white/8 p-5" style={{ background: 'rgba(255,255,255,0.03)' }}>
         <p className="text-sm font-semibold text-white mb-0.5">Badges & Trophées</p>
         <p className="text-xs text-gray-500 mb-4">Vos récompenses débloquées</p>
-        <div className="flex flex-wrap gap-3">
-          {[
-            { emoji: '🍺', label: 'Premier verre', desc: 'Tireuse utilisée', unlocked: true },
-            { emoji: '🔓', label: 'Décapsuleur fou', desc: '10 bouteilles en 1 soir', unlocked: true },
-            { emoji: '🔥', label: 'En feu', desc: '7 jours consécutifs', unlocked: true },
-            { emoji: '👑', label: 'Roi de la soirée', desc: 'N°1 du classement', unlocked: false },
-            { emoji: '💎', label: 'Légende FizzUp', desc: '1000 verres total', unlocked: false },
-            { emoji: '🎯', label: 'Objectif atteint', desc: '5 semaines d\'affilée', unlocked: false },
-          ].map((badge) => (
-            <div
-              key={badge.label}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-                badge.unlocked
-                  ? 'border-violet-500/25 bg-violet-500/8'
-                  : 'border-white/6 opacity-40 grayscale'
-              }`}
-            >
-              <span className="text-2xl">{badge.emoji}</span>
-              <div>
-                <p className="text-sm font-medium text-white">{badge.label}</p>
-                <p className="text-xs text-gray-500">{badge.desc}</p>
+        {badges.length === 0 ? (
+          <p className="text-gray-600 text-sm py-4">Chargement des badges…</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {badges.map((badge) => (
+              <div
+                key={badge.id}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+                  badge.unlocked
+                    ? 'border-violet-500/25 bg-violet-500/8'
+                    : 'border-white/6 opacity-40 grayscale'
+                }`}
+              >
+                <span className="text-2xl">{badge.emoji}</span>
+                <div>
+                  <p className="text-sm font-medium text-white">{badge.label}</p>
+                  <p className="text-xs text-gray-500">{badge.description}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>

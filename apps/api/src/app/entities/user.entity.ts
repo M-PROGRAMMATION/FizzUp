@@ -5,10 +5,12 @@ import {
   Unique,
   Collection,
   OneToMany,
+  OneToOne,
 } from '@mikro-orm/postgresql';
 import { BaseEntity } from './base.entity';
 import { User, UserRole } from '@fizzup/shared';
 import { NotificationsEntity } from './notifications.entity';
+import { UserProfileEntity } from './user-profile.entity';
 
 @Entity({ tableName: 'users' })
 export class UserEntity extends BaseEntity implements User {
@@ -28,12 +30,12 @@ export class UserEntity extends BaseEntity implements User {
   @Property()
   refreshTokens: string[] = [];
 
-  /*@OneToOne({
+  @OneToOne({
     entity: () => UserProfileEntity,
     mappedBy: 'user',
     nullable: true,
   })
-  profile: UserProfileEntity;*/
+  profile?: UserProfileEntity;
 
   @OneToMany({
     entity: () => NotificationsEntity,

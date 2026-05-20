@@ -12,12 +12,27 @@ export default function Header() {
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const isActive = (path: string) => pathname === path;
+  const [currentHash, setCurrentHash] = useState('');
+
+  useEffect(() => {
+    setCurrentHash(window.location.hash); // eslint-disable-line react-hooks/set-state-in-effect
+    const handleHashChange = () => setCurrentHash(window.location.hash);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const isActive = (path: string) => {
+    if (path.includes('#')) {
+      const [pathPart, hashPart] = path.split('#');
+      return pathname === (pathPart || '/') && currentHash === `#${hashPart}`;
+    }
+    return pathname === path;
+  };
 
   const navItems = [
     { href: '/', label: 'Accueil' },
-    { href: '#objects', label: 'Objets connectés' },
-    { href: '#app', label: 'Application' },
+    { href: '/#objects', label: 'Objets connectés' },
+    { href: '/#app', label: 'Application' },
     { href: '/contact', label: 'Contact' },
   ];
 
@@ -27,7 +42,9 @@ export default function Header() {
     api.auth.me(token).then(setUser).catch(() => null);
   }, []);
 
-  function handleLogout() {
+  async function handleLogout() {
+    const token = getToken();
+    if (token) await api.auth.logout(token);
     removeToken();
     setUser(null);
     setMenuOpen(false);

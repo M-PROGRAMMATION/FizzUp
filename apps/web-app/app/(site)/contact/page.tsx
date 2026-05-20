@@ -12,7 +12,6 @@ const contactReasons = [
 
 const teamMembers = [
   { name: 'Mark Albanese–Alessandrini', role: 'Fondateur · Dev Web & API', avatar: 'M', color: '#2563eb' },
-  { name: 'Rudy Alimet', role: 'Dev Software · Dev Web & API', avatar: 'R', color: '#7c3aed' },
   { name: 'Enzo Baboulene', role: 'Dev Hardware · Décapsuleur connecté', avatar: 'E', color: '#059669' },
   { name: 'Marvin Richard', role: 'Dev Hardware · Verre connecté', avatar: 'Mv', color: '#dc2626' },
 ];

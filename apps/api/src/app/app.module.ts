@@ -4,6 +4,12 @@ import { MikroORM } from '@mikro-orm/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { BadgesModule } from './badges/badges.module';
+import { FriendsModule } from './friends/friends.module';
+import { GroupsModule } from './groups/groups.module';
+import { LogsModule } from './logs/logs.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ProfilesModule } from './profiles/profiles.module';
 import { UsersModule } from './users/users.module';
 import config from './config/mikro-orm.config';
 
@@ -11,6 +17,12 @@ import config from './config/mikro-orm.config';
   imports: [
     MikroOrmModule.forRoot(config),
     AuthModule,
+    BadgesModule,
+    FriendsModule,
+    GroupsModule,
+    LogsModule,
+    NotificationsModule,
+    ProfilesModule,
     UsersModule,
   ],
   controllers: [AppController],
